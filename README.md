@@ -1,2 +1,2 @@
-# ESP32_PROJECT-S
-A collection of IoT projects and implementations using the ESP32 DOIT DEVKIT V1. This repository includes multiple sensor integrations, data visualization techniques, and advanced IoT concepts designed for home automation and connectivity. Perfect for developers looking to explore practical applications of ESP32 in IoT-based systems.
+# ESP32_HOME_AUTOMATION_PROJECT-S
+A comprehensive repository for IoT-based home automation projects using the ESP32 DOIT DEVKIT V1. This collection features implementations with various sensors and modules to create smart, connected systems for modern homes. It includes detailed examples of device control, environmental monitoring, and seamless data integration for enhanced home automation experiences.
