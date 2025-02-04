@@ -2,31 +2,30 @@
 #include <WebServer.h>
 #include <DHT.h>
 
-// WiFi credentials
-const char* ssid = "YOUR_WIFI_SSID";
-const char* password = "12345678";
+// WiFi credentials for Access Point
+const char* ap_ssid = "smarthome";  // Your AP SSID
+const char* ap_password = "12345678";  // Your AP password
 
 // Pin Definitions
-#define WATER_TRIG_PIN 5    // Ultrasonic sensor for water level
+#define WATER_TRIG_PIN 5    
 #define WATER_ECHO_PIN 18
-#define LED_PIN 2           // LED control
-#define DOOR_TRIG_PIN 13    // Ultrasonic sensor for door
+#define LED_PIN 2           
+#define DOOR_TRIG_PIN 13    
 #define DOOR_ECHO_PIN 12
-#define FIRE_SENSOR_PIN 34  // Fire sensor
-#define GAS_SENSOR_PIN 35   // Gas sensor
-#define SMOKE_SENSOR_PIN 32 // Smoke sensor
-#define RAIN_SENSOR_PIN 33  // Rain sensor
-#define PIR_SENSOR_PIN 25   // PIR motion sensor
-#define SOIL_SENSOR_PIN 26  // Soil moisture sensor
-#define DHT_PIN 4          // DHT11 sensor
-#define PARKING_TRIG_PIN 14 // Ultrasonic sensor for parking
+#define FIRE_SENSOR_PIN 34  
+#define GAS_SENSOR_PIN 35   
+#define SMOKE_SENSOR_PIN 32 
+#define RAIN_SENSOR_PIN 33  
+#define PIR_SENSOR_PIN 25   
+#define SOIL_SENSOR_PIN 26  
+#define DHT_PIN 4          
+#define PARKING_TRIG_PIN 14 
 #define PARKING_ECHO_PIN 27
 
-// Initialize sensors
-DHT dht(DHT_PIN, DHT11);
 WebServer server(80);
+DHT dht(DHT_PIN, DHT11);
 
-// HTML content (stored in PROGMEM to save RAM)
+// Your existing HTML code
 const char index_html[] PROGMEM = R"rawliteral(
 <!DOCTYPE html>
 <html lang="en">
@@ -306,98 +305,118 @@ const char index_html[] PROGMEM = R"rawliteral(
 )rawliteral";
 
 void setup() {
-  Serial.begin(115200);
-  
-  // Initialize pins
-  pinMode(LED_PIN, OUTPUT);
-  pinMode(WATER_TRIG_PIN, OUTPUT);
-  pinMode(WATER_ECHO_PIN, INPUT);
-  pinMode(DOOR_TRIG_PIN, OUTPUT);
-  pinMode(DOOR_ECHO_PIN, INPUT);
-  pinMode(FIRE_SENSOR_PIN, INPUT);
-  pinMode(GAS_SENSOR_PIN, INPUT);
-  pinMode(SMOKE_SENSOR_PIN, INPUT);
-  pinMode(RAIN_SENSOR_PIN, INPUT);
-  pinMode(PIR_SENSOR_PIN, INPUT);
-  pinMode(SOIL_SENSOR_PIN, INPUT);
-  pinMode(PARKING_TRIG_PIN, OUTPUT);
-  pinMode(PARKING_ECHO_PIN, INPUT);
+    Serial.begin(115200);
+    delay(100);
+    
+    // Initialize pins
+    pinMode(LED_PIN, OUTPUT);
+    pinMode(WATER_TRIG_PIN, OUTPUT);
+    pinMode(WATER_ECHO_PIN, INPUT);
+    pinMode(DOOR_TRIG_PIN, OUTPUT);
+    pinMode(DOOR_ECHO_PIN, INPUT);
+    pinMode(FIRE_SENSOR_PIN, INPUT);
+    pinMode(GAS_SENSOR_PIN, INPUT);
+    pinMode(SMOKE_SENSOR_PIN, INPUT);
+    pinMode(RAIN_SENSOR_PIN, INPUT);
+    pinMode(PIR_SENSOR_PIN, INPUT);
+    pinMode(SOIL_SENSOR_PIN, INPUT);
+    pinMode(PARKING_TRIG_PIN, OUTPUT);
+    pinMode(PARKING_ECHO_PIN, INPUT);
 
-  // Initialize DHT sensor
-  dht.begin();
+    dht.begin();
 
-  // Connect to WiFi
-  WiFi.begin(ssid, password);
-  while (WiFi.status() != WL_CONNECTED) {
+    // Initialize WiFi Access Point
+    WiFi.disconnect();   // Disconnect any previous connections
+    WiFi.mode(WIFI_OFF);  // Turn off WiFi
     delay(1000);
-    Serial.println("Connecting to WiFi...");
-  }
-  Serial.println("Connected to WiFi");
-  Serial.println(WiFi.localIP());
+    
+    WiFi.mode(WIFI_AP);  // Set mode to ACCESS POINT
+    delay(100);
+    
+    // Configure AP
+    WiFi.softAP(ap_ssid, ap_password);
+    delay(2000); // Give time for AP to start
+    
+    IPAddress IP = WiFi.softAPIP();
+    Serial.println("");
+    Serial.println("WiFi AP is started");
+    Serial.print("AP SSID: ");
+    Serial.println(ap_ssid);
+    Serial.print("AP IP address: ");
+    Serial.println(IP);
+    
+    // Print MAC Address
+    Serial.print("MAC Address: ");
+    Serial.println(WiFi.macAddress());
 
-  // Define web server routes
-  server.on("/", handleRoot);
-  server.on("/getData", handleGetData);
-  server.on("/toggleLED", handleToggleLED);
-  
-  server.begin();
+    // Set up web server routes
+    server.on("/", HTTP_GET, []() {
+        server.send(200, "text/html", index_html);
+    });
+    
+    server.on("/getData", HTTP_GET, handleGetData);
+    server.on("/toggleLED", HTTP_GET, handleToggleLED);
+    
+    // Start server
+    server.begin();
+    Serial.println("HTTP server started");
 }
 
 void loop() {
-  server.handleClient();
+    server.handleClient();
+    
+    // Print connected clients every 10 seconds
+    static unsigned long lastPrint = 0;
+    if (millis() - lastPrint > 10000) {
+        Serial.printf("Stations connected = %d\n", WiFi.softAPgetStationNum());
+        lastPrint = millis();
+    }
 }
 
-void handleRoot() {
-  server.send(200, "text/html", index_html);
-}
-
-// Function to read ultrasonic sensor distance
 float readUltrasonicDistance(int trigPin, int echoPin) {
-  digitalWrite(trigPin, LOW);
-  delayMicroseconds(2);
-  digitalWrite(trigPin, HIGH);
-  delayMicroseconds(10);
-  digitalWrite(trigPin, LOW);
-  
-  long duration = pulseIn(echoPin, HIGH);
-  return duration * 0.034 / 2; // Convert to cm
+    digitalWrite(trigPin, LOW);
+    delayMicroseconds(2);
+    digitalWrite(trigPin, HIGH);
+    delayMicroseconds(10);
+    digitalWrite(trigPin, LOW);
+    
+    long duration = pulseIn(echoPin, HIGH);
+    return duration * 0.034 / 2;
 }
 
 void handleGetData() {
-  // Read all sensor values
-  float waterLevel = readUltrasonicDistance(WATER_TRIG_PIN, WATER_ECHO_PIN);
-  float doorDistance = readUltrasonicDistance(DOOR_TRIG_PIN, DOOR_ECHO_PIN);
-  bool fireDetected = analogRead(FIRE_SENSOR_PIN) < 500; // Adjust threshold as needed
-  bool gasDetected = analogRead(GAS_SENSOR_PIN) > 700;   // Adjust threshold as needed
-  int smokeLevel = analogRead(SMOKE_SENSOR_PIN);
-  bool isRaining = digitalRead(RAIN_SENSOR_PIN) == LOW;
-  bool motionDetected = digitalRead(PIR_SENSOR_PIN) == HIGH;
-  int soilMoisture = analogRead(SOIL_SENSOR_PIN);
-  float temp = dht.readTemperature();
-  float humidity = dht.readHumidity();
-  float parkingDistance = readUltrasonicDistance(PARKING_TRIG_PIN, PARKING_ECHO_PIN);
+    float waterLevel = readUltrasonicDistance(WATER_TRIG_PIN, WATER_ECHO_PIN);
+    float doorDistance = readUltrasonicDistance(DOOR_TRIG_PIN, DOOR_ECHO_PIN);
+    bool fireDetected = analogRead(FIRE_SENSOR_PIN) < 500;
+    bool gasDetected = analogRead(GAS_SENSOR_PIN) > 700;
+    int smokeLevel = analogRead(SMOKE_SENSOR_PIN);
+    bool isRaining = digitalRead(RAIN_SENSOR_PIN) == LOW;
+    bool motionDetected = digitalRead(PIR_SENSOR_PIN) == HIGH;
+    int soilMoisture = analogRead(SOIL_SENSOR_PIN);
+    float temp = dht.readTemperature();
+    float humidity = dht.readHumidity();
+    float parkingDistance = readUltrasonicDistance(PARKING_TRIG_PIN, PARKING_ECHO_PIN);
 
-  // Create JSON response
-  String jsonResponse = "{";
-  jsonResponse += "\"water\":\"" + String(waterLevel < 10 ? "High" : "Low") + "\",";
-  jsonResponse += "\"door\":\"" + String(doorDistance < 5 ? "OPEN" : "CLOSED") + "\",";
-  jsonResponse += "\"fire\":\"" + String(fireDetected ? "🔥 Fire Detected!" : "No Fire") + "\",";
-  jsonResponse += "\"gas\":\"" + String(gasDetected ? "⚠ Gas Leak!" : "Safe") + "\",";
-  jsonResponse += "\"smoke\":\"" + String(smokeLevel > 700 ? "High" : "Low") + "\",";
-  jsonResponse += "\"rain\":\"" + String(isRaining ? "Raining" : "Dry") + "\",";
-  jsonResponse += "\"motion\":\"" + String(motionDetected ? "Motion Detected" : "No Motion") + "\",";
-  jsonResponse += "\"soil\":\"" + String(soilMoisture < 500 ? "Dry" : "Normal") + "\",";
-  jsonResponse += "\"temperature\":" + String(temp) + ",";
-  jsonResponse += "\"humidity\":" + String(humidity) + ",";
-  jsonResponse += "\"parking\":\"" + String(parkingDistance < 20 ? "Occupied" : "Available") + "\"";
-  jsonResponse += "}";
+    String jsonResponse = "{";
+    jsonResponse += "\"water\":\"" + String(waterLevel < 10 ? "High" : "Low") + "\",";
+    jsonResponse += "\"door\":\"" + String(doorDistance < 5 ? "OPEN" : "CLOSED") + "\",";
+    jsonResponse += "\"fire\":\"" + String(fireDetected ? "🔥 Fire Detected!" : "No Fire") + "\",";
+    jsonResponse += "\"gas\":\"" + String(gasDetected ? "⚠ Gas Leak!" : "Safe") + "\",";
+    jsonResponse += "\"smoke\":\"" + String(smokeLevel > 700 ? "High" : "Low") + "\",";
+    jsonResponse += "\"rain\":\"" + String(isRaining ? "Raining" : "Dry") + "\",";
+    jsonResponse += "\"motion\":\"" + String(motionDetected ? "Motion Detected" : "No Motion") + "\",";
+    jsonResponse += "\"soil\":\"" + String(soilMoisture < 500 ? "Dry" : "Normal") + "\",";
+    jsonResponse += "\"temperature\":" + String(temp) + ",";
+    jsonResponse += "\"humidity\":" + String(humidity) + ",";
+    jsonResponse += "\"parking\":\"" + String(parkingDistance < 20 ? "Occupied" : "Available") + "\"";
+    jsonResponse += "}";
 
-  server.send(200, "application/json", jsonResponse);
+    server.send(200, "application/json", jsonResponse);
 }
 
 void handleToggleLED() {
-  static bool ledState = false;
-  ledState = !ledState;
-  digitalWrite(LED_PIN, ledState);
-  server.send(200, "text/plain", ledState ? "ON" : "OFF");
+    static bool ledState = false;
+    ledState = !ledState;
+    digitalWrite(LED_PIN, ledState);
+    server.send(200, "text/plain", ledState ? "ON" : "OFF");
 }
