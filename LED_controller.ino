@@ -1,7 +1,7 @@
 #include <WiFi.h>
 #include <WebServer.h>
 
-// Access Point credentials
+// Access Point Credentials
 const char* ssid = "ESP32-LED-AP";
 const char* password = "12345678";
 
